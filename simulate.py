@@ -15,6 +15,7 @@ nsb_rate = 0.4  # GHz p.e.
 pulsar_period = 33e-3 / 1e-9  # in nsec
 #pulsar_time, pulsar_amplitude = [0, 0.1, 0.3, 0.4, 0.5, 0.9, 1.0], [1, 0, 0, 0.25, 0, 0, 1]  # period, a.u.
 pulsar_time, pulsar_amplitude, pulsar_error = np.loadtxt("overallphasogram_profile.dat",unpack = True)
+pulsar_mean_err = pulsar_error.mean()
 #pulsar_charge_scale = 0.001  # GHz p.e. per a.u.
 pulsar_charge_scale = 0.1    # GHz p.e. per a.u.
 pulsar_model = splrep(np.array(pulsar_time) * pulsar_period, np.array(pulsar_amplitude) * pulsar_charge_scale, k=1, s=0, per=True)
@@ -33,19 +34,22 @@ while t < tmax:
     t += delta
     i0 = (t - tmin) / dt
     pulse_i0 = int((i0 % 1) // pulse_dt)
-    pulse = pulse_amplitude[pulse_i0::pulse_di] 
+    pulse = pulse_amplitude[pulse_i0::pulse_di]
+    pulsar = splev(t % pulsar_period, pulsar_model)
+    delta_pulsar = norm(scale = pulsar_mean_err).rvs(1)
+    pulse_add =pulse + pulsar + delta_pulsar
     try:
-        trace[int(i0):int(i0) + pulse.size] += pulse
+        trace[int(i0):int(i0) + pulse.size] += pulse_add
     except ValueError:
         trace = trace
 
 #print(trace)
-baselines = [0.0]
+baselines1 = [0.0]
 for sample in trace:
-    if sample > baselines[-1]:
-        baselines.append(baselines[-1] + 1 / 16)
-    elif sample < baselines[-1]:
-        baselines.append(baselines[-1] - 1 / 16)
+    if sample > baselines1[-1]:
+        baselines1.append(baselines1[-1] + 1 / 16)
+    elif sample < baselines1[-1]:
+        baselines1.append(baselines1[-1] - 1 / 16)
 
-pyplot.plot(time[:1024], trace[:1024])
-pyplot.plot(time[:1024], baselines[:1024])
+pyplot.plot(time, trace)
+pyplot.plot(time, baselines1[:-1])
