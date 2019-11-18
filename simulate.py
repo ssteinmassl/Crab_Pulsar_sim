@@ -7,10 +7,12 @@ from matplotlib import pyplot
 
 pyplot.ion()
 
+nsb_rate = 0.4  # GHz p.e.
+spe_gain = 10.0  # LSB / p.e. on average
+
 pulse_time, pulse_amplitude = np.loadtxt("flashcam_pulse_shape_fast.dat").T
 pulse_dt = np.median(np.diff(pulse_time))
-
-nsb_rate = 0.4  # GHz p.e.
+pulse_amplitude *= spe_gain / pulse_amplitude.max()
 
 pulsar_period = 33e-3 / 1e-9  # in nsec
 #pulsar_time, pulsar_amplitude = [0, 0.1, 0.3, 0.4, 0.5, 0.9, 1.0], [1, 0, 0, 0.25, 0, 0, 1]  # period, a.u.
@@ -25,27 +27,29 @@ pulsar_model = splrep(np.array(pulsar_time) * pulsar_period, np.array(pulsar_amp
 time = np.arange(0, 0.001 * pulsar_period,4.0)
 trace = np.zeros_like(time)
 
-t = 0
 tmin, tmax, dt = time.min(), time.max(), 4.0
-pulse_di = int(dt // pulse_dt)
-while t < tmax:
-    delta = expon(scale=1.0 / nsb_rate).rvs(1)
+pulse_di = int(np.round(dt / pulse_dt))
+
+t = 0
+for delta in expon(scale=1.0 / nsb_rate).rvs(int((tmax - tmin) * nsb_rate + 250)):
     t += delta
     i0 = (t - tmin) / dt
     pulse_i0 = int((i0 % 1) // pulse_dt)
     pulse = pulse_amplitude[pulse_i0::pulse_di] 
-    try:
-        trace[int(i0):int(i0) + pulse.size] += pulse
-    except ValueError:
-        trace = trace
+    if i0 + pulse.size > trace.size:
+        break
+    trace[int(i0):int(i0) + pulse.size] += pulse
 
-#print(trace)
-baselines = [0.0]
+baselines, bl = [], pulse_amplitude.sum() / pulse_di * nsb_rate * dt
 for sample in trace:
-    if sample > baselines[-1]:
-        baselines.append(baselines[-1] + 1 / 16)
-    elif sample < baselines[-1]:
-        baselines.append(baselines[-1] - 1 / 16)
+    if sample > bl:
+        bl += 1 / 16
+    elif sample < bl:
+        bl -= 1/ 16
+
+    baselines.append(bl)
+
+time, trace, baselines = np.array(time), np.array(trace), np.array(baselines)
 
 pyplot.plot(time[:1024], trace[:1024])
 pyplot.plot(time[:1024], baselines[:1024])
