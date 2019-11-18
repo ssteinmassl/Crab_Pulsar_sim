@@ -17,6 +17,7 @@ pulse_amplitude *= spe_gain / pulse_amplitude.max()
 pulsar_period = 33e-3 / 1e-9  # in nsec
 #pulsar_time, pulsar_amplitude = [0, 0.1, 0.3, 0.4, 0.5, 0.9, 1.0], [1, 0, 0, 0.25, 0, 0, 1]  # period, a.u.
 pulsar_time, pulsar_amplitude, pulsar_error = np.loadtxt("overallphasogram_profile.dat",unpack = True)
+pulsar_mean_err = pulsar_error.mean()
 #pulsar_charge_scale = 0.001  # GHz p.e. per a.u.
 pulsar_charge_scale = 0.1    # GHz p.e. per a.u.
 pulsar_model = splrep(np.array(pulsar_time) * pulsar_period, np.array(pulsar_amplitude) * pulsar_charge_scale, k=1, s=0, per=True)
@@ -35,10 +36,13 @@ for delta in expon(scale=1.0 / nsb_rate).rvs(int((tmax - tmin) * nsb_rate + 250)
     t += delta
     i0 = (t - tmin) / dt
     pulse_i0 = int((i0 % 1) // pulse_dt)
-    pulse = pulse_amplitude[pulse_i0::pulse_di] 
+    pulse = pulse_amplitude[pulse_i0::pulse_di]
+    pulsar = splev(t % pulsar_period, pulsar_model)
+    delta_pulsar = norm(scale = pulsar_mean_err).rvs(1)
+    pulse_add =pulse + pulsar + delta_pulsar
     if i0 + pulse.size > trace.size:
         break
-    trace[int(i0):int(i0) + pulse.size] += pulse
+    trace[int(i0):int(i0) + pulse.size] += pulse_add
 
 baselines, bl = [], pulse_amplitude.sum() / pulse_di * nsb_rate * dt
 for sample in trace:
@@ -51,5 +55,7 @@ for sample in trace:
 
 time, trace, baselines = np.array(time), np.array(trace), np.array(baselines)
 
-pyplot.plot(time[:1024], trace[:1024])
-pyplot.plot(time[:1024], baselines[:1024])
+
+
+pyplot.plot(time, trace)
+pyplot.plot(time, baselines)
