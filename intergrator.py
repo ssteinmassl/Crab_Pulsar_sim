@@ -12,7 +12,7 @@ time_read = np.load("time.npy")
 tr_bas_diff = trace_read-baseline_read
 int_window =128
 len_data = int_window*int(tr_bas_diff.size /int_window)
-tr_int = np.sum(tr_bas_diff[:len_data].reshape(int_window,int(tr_bas_diff.size /int_window)),axis=0)
+tr_int = np.sum(tr_bas_diff[:len_data].reshape(int(len_data/int_window),int_window),axis=1)
 
 time_int = time_read[:len_data][::int_window]
 #pyplot.plot(time_int,tr_int)
